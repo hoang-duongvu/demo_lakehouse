@@ -1,0 +1,198 @@
+x-airflow-common: &airflow-common
+  build:
+    context: ./airflow
+    dockerfile: Dockerfile
+  env_file:
+    - ./airflow/airflow.env
+  volumes:
+    - ./airflow/jobs:/opt/airflow/jobs
+    - ./airflow/dags:/opt/airflow/dags
+    - ../spark/conf/spark-defaults.conf:/home/sparkuser/spark/conf/spark-defaults.conf
+  depends_on:
+    - airflow-db
+
+services:
+  namenode:
+    image: apache/hadoop:3.4.1
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hdfs/hdfs_namenode:/opt/hadoop/data/namenode
+      - ./hdfs/conf:/opt/hadoop/etc/hadoop
+      - ./hdfs/start-hdfs.sh:/start-hdfs.sh
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    command: ["/bin/bash", "/start-hdfs.sh"]
+
+  datanode:
+    image: apache/hadoop:3.4.1
+    container_name: datanode
+    hostname: datanode
+    user: root
+    ports:
+      - "9866:9866"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hdfs/hdfs_datanode:/opt/hadoop/data/datanode
+      - ./hdfs/conf:/opt/hadoop/etc/hadoop
+      - ./hdfs/init-datanode.sh:/init-datanode.sh
+    command: ["/bin/bash", "/init-datanode.sh"]
+    depends_on:
+      - namenode
+  hive-metastore-db:
+    image: postgres:13
+    container_name: hive-metastore-db
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - POSTGRES_DB=metastore
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hivepassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - metastore-data:/var/lib/postgresql/data
+   
+  hive-metastore:
+    image: apache/hive:4.0.0
+    container_name: hive-metastore
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      HIVE_METASTORE_DB_TYPE: postgres
+      DB_TYPE: postgres
+      SERVICE_NAME: metastore
+      DB_HOST: hive-metastore-db
+      DB_DRIVER: postgres
+      DB_PORT: 5432
+      DB_NAME: metastore
+      DB_USER: hive
+      DB_PASSWORD: hivepassword
+    volumes:
+      - ./hive/conf:/opt/hive/conf
+      - ./hdfs/conf/core-site.xml:/opt/hive/conf/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/opt/hive/conf/hdfs-site.xml
+      - ./hive/lib/postgresql-42.5.4.jar:/opt/hive/lib/postgresql-42.5.4.jar
+    command: >
+      /opt/hive/bin/hive --service metastore
+    ports:
+      - "9083:9083"
+    depends_on:
+      - hive-metastore-db
+
+  trino:
+    image: trinodb/trino:422
+    container_name: trino
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      - ./trino/conf:/etc/trino
+      - ./hdfs/conf/core-site.xml:/etc/hadoop/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ./hive/conf/hive-site.xml:/etc/hive/hive-site.xml
+    ports:
+      - "8082:8080"
+    depends_on:
+      - hive-metastore
+
+  presto:
+    image: prestodb/presto:latest
+    container_name: presto
+    hostname: presto
+    ports:
+      - "8083:8080"   # Presto UI / HTTP
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      - ./presto/etc/catalog:/opt/presto-server/etc/catalog
+      - ./hdfs/conf/core-site.xml:/opt/presto/etc/conf/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/opt/presto/etc/conf/hdfs-site.xml
+      - ./hive/conf/hive-site.xml:/opt/presto/etc/conf/hive-site.xml
+    depends_on:
+      - hive-metastore
+
+
+  spark-master:
+    build:
+      context: ./spark
+      dockerfile: ./Dockerfile
+    container_name: spark-master
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_USER=spark
+    ports:
+      - "7077:7077"  # Spark master port
+      - "8081:8080"  # Spark master web UI port
+    expose: 
+      - "7077"
+    volumes:
+      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./spark/libs/hudi-spark3.5-bundle_2.12-0.15.0.jar:/opt/bitnami/spark/jars/hudi-spark3.5-bundle_2.12-0.15.0.jar     # chứa hudi-spark-bundle jar
+      - ./spark/conf/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml
+      - ./hdfs/conf/core-site.xml:/opt/bitnami/spark/conf/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/opt/bitnami/spark/conf/hdfs-site.xml
+      - ./airflow/jobs/test1/target:/opt/bitnami/spark/spark_jars  # chứa job spark đã build file jar
+  spark-worker:
+    build:
+      context: ./spark
+      dockerfile: ./Dockerfile
+    container_name: spark-worker
+    depends_on:
+      - spark-master
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_USER=spark
+    volumes:
+      - ./spark/conf/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./spark/libs/hudi-spark3.5-bundle_2.12-0.15.0.jar:/opt/bitnami/spark/jars/hudi-spark3.5-bundle_2.12-0.15.0.jar
+      - ./spark/conf/hive-site.xml:/opt/bitnami/spark/conf/hive-site.xml
+      - ./hdfs/conf/core-site.xml:/opt/bitnami/spark/conf/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/opt/bitnami/spark/conf/hdfs-site.xml
+  airflow-db:
+    image: postgres:13
+    container_name: airflow-db
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+
+  webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    environment:
+    - TZ=Asia/Ho_Chi_Minh
+    ports:
+      - "8080:8080"
+    depends_on:
+      - scheduler
+      - airflow-db
+
+  scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    command: bash -c "airflow db migrate && airflow users create --username admin --firstname aDmin --lastname adMin --role Admin --email airscholar@gmail.com --password admin && airflow scheduler"
+
+volumes:
+  metastore-data:

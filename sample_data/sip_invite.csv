@@ -1,0 +1,4 @@
+call_id,start_ts,response_ts,ringing_ts,answer_ts,end_call_ts,stop_method,stop_reason,to_phone_enc,from_phone_enc,call_state,call_type,part_date,part_hour
+10001,40,43,48,49,60,BYE,NORMAL,12345678900,09876543210,FAILED,MO,2023-10-01,5
+10002,38,39,41,44,49,TIMEOUT,DROP,12345678901,09876543211,FAILED,MT,2023-10-01,5
+10003,42,44,46,51,60,TIMEOUT,DROP,12345678902,09876543212,SUCCESS,MO,2023-10-01,5

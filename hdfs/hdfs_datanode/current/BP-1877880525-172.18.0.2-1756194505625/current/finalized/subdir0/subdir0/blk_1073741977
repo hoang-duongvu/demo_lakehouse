@@ -1,0 +1,21 @@
+#Properties saved on 2025-09-09T01:47:02.302987739Z
+#Tue Sep 09 08:47:02 ICT 2025
+hoodie.table.type=COPY_ON_WRITE
+hoodie.table.precombine.field=ts
+hoodie.table.partition.fields=part_date,part_hour
+hoodie.table.cdc.enabled=false
+hoodie.archivelog.folder=archived
+hoodie.timeline.layout.version=1
+hoodie.table.checksum=1564386787
+hoodie.datasource.write.drop.partition.columns=false
+hoodie.table.timeline.timezone=LOCAL
+hoodie.table.recordkey.fields=call_id
+hoodie.table.name=sip_invite
+hoodie.partition.metafile.use.base.format=false
+hoodie.datasource.write.hive_style_partitioning=false
+hoodie.populate.meta.fields=true
+hoodie.table.keygenerator.class=org.apache.hudi.keygen.ComplexKeyGenerator
+hoodie.table.base.file.format=PARQUET
+hoodie.database.name=
+hoodie.datasource.write.partitionpath.urlencode=false
+hoodie.table.version=6
