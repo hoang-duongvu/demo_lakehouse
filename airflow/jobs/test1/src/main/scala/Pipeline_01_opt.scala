@@ -37,8 +37,8 @@ object Pipeline_01_opt {
     val sipCatalog = config.getString("app.sip.catalog")
     val sipSchema = config.getString("app.sip.schema")
     val sipTable =  config.getString("app.sip.table")
-    val partDate = "2023-10-01"
-    val partHour = "5"
+    val partDate = sys.env.getOrElse("RUN_DATE", "null")
+    val partHour = sys.env.getOrElse("RUN_HOUR", "null")
 
     val sipUrl = "jdbc:trino://{trinoHost}:{trinoPort}/{sipCatalog}/{sipSchema}"
       .replace("{trinoHost}", trinoHost)
@@ -73,7 +73,7 @@ object Pipeline_01_opt {
     val ebsSchema = config.getString("app.ebs.schema")
     val ebsTable = config.getString("app.ebs.table")
 
-    val dateHour = "2023-10-01-5"
+    val dateHour = s"""$partDate-$partHour"""
 
     val ebsQuery = s"""(
       SELECT event_id, msisdn, eci, event_time, date_hour
@@ -146,12 +146,12 @@ object Pipeline_01_opt {
 
     println("------------------------------ START WRITE HUDI! -----------------------------")
     val tableName = config.getString("app.cell_detect.table1")
-    val basePath = config.getString("app.cell_detect.base_path")
+    val basePath = config.getString("app.cell_detect.base_path_1")
     val hiveSyncDB = config.getString("app.cell_detect.hive_sync_db")
     val hiveSyncMetastoreUris = config.getString("app.cell_detect.hive_sync_metastore_uris")
 
     cellDetectDF.write.format("hudi")
-      .option("hoodie.datasource.write.recordkey.field", "call_id")
+      .option("hoodie.datasource.write.recordkey.field", "call_id,event_id,event_time,date_hour")
       .option("hoodie.datasource.write.precombine.field", "ts")
       .option("hoodie.datasource.write.partitionpath.field", "date_hour")
       .option("hoodie.table.name", tableName)
@@ -165,7 +165,7 @@ object Pipeline_01_opt {
       .option("hoodie.datasource.hive_sync.partition_fields", "date_hour")
       .option("hoodie.datasource.hive_sync.partition_extractor_class", "org.apache.hudi.hive.MultiPartKeysValueExtractor")
       .option("hoodie.metadata.enable", "false")
-      .mode(SaveMode.Overwrite)
+      .mode(SaveMode.Append)
       .save(basePath)
     println("------------------------------ FINISHED WRITE HUDI! -----------------------------")
     spark.stop()

@@ -1,1 +1,5 @@
 /spark/libs/*.jar
+/hdfs/hdfs_datanode/
+/hdfs/hdfs_namenode/
+/hdfs/hdfs_datanode/current/
+/hdfs/hdfs_namenode/current/

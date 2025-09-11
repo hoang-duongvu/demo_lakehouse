@@ -21,7 +21,9 @@ object ReadEBS_Lake {
     val ebsSchema = config.getString("app.ebs.schema")
     val ebsTable = config.getString("app.ebs.table")
 
-    val dateHour = "2023-10-01-5"
+    val run_date = sys.env.getOrElse("RUN_DATE", "null")
+    val run_hour = sys.env.getOrElse("RUN_HOUR", "null")
+    val dateHour = s"""$run_date-$run_hour"""
 
     val subquery = s"""(
       SELECT event_id, msisdn, event_time, date_hour
@@ -38,7 +40,9 @@ object ReadEBS_Lake {
       .option("password", prestoPassword)
       .load()
 
-    df.printSchema()
+//    println(run_date)
+//    println(run_hour)
+    df.show()
     spark.stop()
   }
 }
