@@ -9,6 +9,7 @@ Xây dựng Data LakeHouse đơn giản với các công nghệ:
 
 Sử dụng DBeaver để thao tác trực quan với Trino và Presto.
 ## Kiến trúc
+![Architecture](architecture.png)
 ## Cài đặt và chạy
 Khởi động các Docker Container:
 

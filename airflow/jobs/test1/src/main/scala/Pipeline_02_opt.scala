@@ -155,7 +155,7 @@ object Pipeline_02_opt {
     val hiveSyncMetastoreUris = config.getString("app.cell_detect.hive_sync_metastore_uris")
 
     cellDetectDF.write.format("hudi")
-      .option("hoodie.datasource.write.recordkey.field", "call_id,event_id,event_time,date_hour")
+      .option("hoodie.datasource.write.recordkey.field", "call_id,msisdn,event_id,event_time,date_hour")
       .option("hoodie.datasource.write.precombine.field", "ts")
       .option("hoodie.datasource.write.partitionpath.field", "date_hour")
       .option("hoodie.table.name", tableName)
